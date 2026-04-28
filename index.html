@@ -1,0 +1,2548 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tool tính công Excel</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4f7fb;
+        --surface: #ffffff;
+        --surface-soft: #f8fafc;
+        --text: #172033;
+        --muted: #667085;
+        --line: #dce3ee;
+        --primary: #2563eb;
+        --primary-strong: #1d4ed8;
+        --green: #15803d;
+        --green-bg: #eaf8ef;
+        --amber: #b45309;
+        --amber-bg: #fff4de;
+        --red: #b42318;
+        --red-bg: #ffefef;
+        --cyan: #0e7490;
+        --cyan-bg: #e6f7fb;
+        --shadow: 0 16px 42px rgba(25, 39, 66, 0.1);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top left, rgba(37, 99, 235, 0.12), transparent 32rem),
+          linear-gradient(180deg, #f9fbff 0%, var(--bg) 100%);
+        color: var(--text);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      button, input, select { font: inherit; }
+
+      .app-shell {
+        width: min(1480px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 24px 0 32px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+
+      .eyebrow {
+        margin: 0 0 4px;
+        color: var(--primary);
+        font-size: 13px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: clamp(26px, 4vw, 42px);
+        line-height: 1.05;
+      }
+
+      .actions { display: flex; gap: 10px; }
+
+      .button {
+        min-height: 42px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        padding: 0 16px;
+        cursor: pointer;
+        font-weight: 700;
+        transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+      }
+
+      .button:hover:not(:disabled) { transform: translateY(-1px); }
+      .button:disabled { cursor: not-allowed; opacity: 0.52; }
+
+      .button.primary {
+        background: var(--primary);
+        color: #fff;
+        box-shadow: 0 10px 22px rgba(37, 99, 235, 0.24);
+      }
+      .button.primary:hover:not(:disabled) { background: var(--primary-strong); }
+
+      .button.ghost {
+        background: #fff;
+        border-color: var(--line);
+        color: var(--text);
+      }
+
+      .export-wrap {
+        position: relative;
+      }
+
+      .export-menu {
+        position: absolute;
+        top: calc(100% + 6px);
+        right: 0;
+        min-width: 180px;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+        padding: 6px;
+        display: none;
+        z-index: 10;
+      }
+
+      .export-wrap.open .export-menu { display: grid; gap: 2px; }
+
+      .export-menu button {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: transparent;
+        border: none;
+        border-radius: 6px;
+        padding: 9px 12px;
+        text-align: left;
+        font-weight: 600;
+        color: var(--text);
+        cursor: pointer;
+      }
+
+      .export-menu button:hover { background: #eef4fb; }
+
+      .export-menu .ext {
+        display: inline-grid;
+        place-items: center;
+        width: 32px;
+        height: 22px;
+        border-radius: 4px;
+        font-size: 10px;
+        font-weight: 800;
+        color: #fff;
+        letter-spacing: 0.5px;
+      }
+
+      .export-menu .ext.csv { background: #475569; }
+      .export-menu .ext.xlsx { background: #15803d; }
+      .export-menu .ext.pdf { background: #b91c1c; }
+
+      .button.primary .caret {
+        margin-left: 6px;
+        font-size: 11px;
+        opacity: 0.85;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: 320px minmax(0, 1fr);
+        gap: 18px;
+        align-items: start;
+      }
+
+      .panel {
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid rgba(220, 227, 238, 0.9);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+      }
+
+      .stat-box {
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid rgba(220, 227, 238, 0.9);
+        border-radius: 8px;
+        box-shadow: var(--shadow);
+      }
+
+      .controls-panel {
+        position: sticky;
+        top: 18px;
+        padding: 16px;
+      }
+
+      .upload-box {
+        display: grid;
+        place-items: center;
+        min-height: 188px;
+        border: 1.5px dashed #9cb5df;
+        border-radius: 8px;
+        background: #f7fbff;
+        cursor: pointer;
+        text-align: center;
+        transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+        position: relative;
+      }
+
+      .upload-box.drag-over {
+        border-color: var(--primary);
+        background: #edf5ff;
+        transform: translateY(-1px);
+      }
+
+      .upload-box input {
+        position: absolute;
+        inline-size: 1px;
+        block-size: 1px;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .upload-icon {
+        display: grid;
+        place-items: center;
+        width: 48px;
+        height: 48px;
+        margin-bottom: 10px;
+        border-radius: 50%;
+        background: var(--primary);
+        color: #fff;
+        font-size: 34px;
+        line-height: 1;
+      }
+
+      .upload-title { display: block; font-weight: 800; }
+      .upload-note {
+        display: block;
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .settings {
+        display: grid;
+        gap: 12px;
+        margin-top: 18px;
+        padding-top: 16px;
+        border-top: 1px solid var(--line);
+      }
+
+      .settings-title {
+        font-size: 13px;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .field { display: grid; gap: 6px; }
+
+      .field span, .search-field span {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .field input, .field select, .search-field input {
+        min-height: 42px;
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--text);
+        padding: 0 12px;
+        outline: none;
+      }
+
+      .field input:focus, .field select:focus, .search-field input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+      }
+
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 650;
+      }
+
+      .toggle-row input {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--primary);
+      }
+
+      .intern-settings {
+        display: grid;
+        gap: 8px;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface-soft);
+      }
+
+      .intern-settings-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .intern-settings-title {
+        color: var(--muted);
+        font-size: 12px;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .intern-count {
+        color: var(--primary);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .intern-list {
+        display: grid;
+        gap: 6px;
+        max-height: 190px;
+        overflow: auto;
+        padding-right: 2px;
+      }
+
+      .intern-option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 34px;
+        padding: 7px 8px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: #fff;
+        color: var(--text);
+        font-size: 13px;
+        font-weight: 650;
+        cursor: pointer;
+      }
+
+      .intern-option input {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--primary);
+      }
+
+      .intern-empty {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.4;
+      }
+
+      .file-stack {
+        display: grid;
+        gap: 8px;
+        margin-top: 14px;
+      }
+
+      .file-pill {
+        display: grid;
+        gap: 3px;
+        padding: 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--surface-soft);
+        font-size: 13px;
+      }
+
+      .file-pill strong { overflow-wrap: anywhere; }
+      .file-pill span { color: var(--muted); }
+
+      .file-pill.error {
+        background: var(--red-bg);
+        border-color: #fecaca;
+        color: var(--red);
+      }
+
+      .content {
+        display: grid;
+        gap: 16px;
+        min-width: 0;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .stat-box { min-height: 104px; padding: 18px; }
+
+      .stat-box span {
+        display: block;
+        color: var(--muted);
+        font-size: 13px;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      .stat-box strong {
+        display: block;
+        margin-top: 10px;
+        font-size: clamp(24px, 3vw, 34px);
+        line-height: 1.05;
+      }
+
+      .table-panel { overflow: hidden; }
+
+      .table-toolbar {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .toolbar-group { display: flex; gap: 10px; align-items: end; }
+
+      .field.compact { min-width: 170px; }
+
+      .search-field {
+        display: grid;
+        gap: 6px;
+        width: min(320px, 100%);
+      }
+
+      .empty-state {
+        display: grid;
+        place-items: center;
+        min-height: 360px;
+        color: var(--muted);
+        text-align: center;
+        padding: 24px;
+      }
+
+      .empty-state strong { color: var(--text); font-size: 18px; }
+
+      .table-wrap {
+        overflow: auto;
+        max-height: calc(100vh - 260px);
+      }
+
+      table {
+        width: 100%;
+        min-width: 880px;
+        border-collapse: collapse;
+      }
+
+      th, td {
+        padding: 12px 14px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: middle;
+        white-space: nowrap;
+      }
+
+      th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #eef4fb;
+        color: #344054;
+        font-size: 12px;
+        text-transform: uppercase;
+      }
+
+      td { background: #fff; font-size: 14px; }
+
+      tbody tr.summary-row { cursor: pointer; }
+      tbody tr.summary-row:hover td { background: #f8fbff; }
+      tbody tr.summary-row.expanded td {
+        background: #eef4fb;
+        border-bottom-color: transparent;
+      }
+
+      .muted { color: var(--muted); }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        min-height: 24px;
+        border-radius: 999px;
+        padding: 0 10px;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .badge.ok { background: var(--green-bg); color: var(--green); }
+      .badge.short { background: var(--amber-bg); color: var(--amber); }
+      .badge.missing { background: var(--red-bg); color: var(--red); }
+      .badge.overtime { background: var(--cyan-bg); color: var(--cyan); }
+      .badge.sunday { background: #eef2ff; color: #4338ca; }
+      .badge.leave { background: #f3e8ff; color: #7e22ce; }
+      .badge.forgot { background: #fff1f2; color: #be123c; }
+
+      .employee-name {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+      }
+
+      .toggle-icon {
+        display: inline-grid;
+        place-items: center;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        background: #eef4fb;
+        color: var(--primary);
+        font-size: 12px;
+        font-weight: 800;
+        transition: transform 160ms ease;
+        flex-shrink: 0;
+      }
+
+      tr.summary-row.expanded .toggle-icon { transform: rotate(90deg); }
+
+      .detail-row td {
+        padding: 0;
+        background: #f8fbff;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .detail-wrap {
+        padding: 12px 14px 16px;
+      }
+
+      .detail-title {
+        margin: 6px 0 10px;
+        font-size: 13px;
+        font-weight: 800;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+
+      table.detail-table {
+        width: 100%;
+        min-width: 0;
+        border-collapse: collapse;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+
+      table.detail-table th {
+        background: #f1f5fb;
+        position: static;
+        font-size: 11px;
+      }
+
+      table.detail-table th,
+      table.detail-table td {
+        padding: 10px 12px;
+        font-size: 13px;
+      }
+
+      table.detail-table tr:last-child td { border-bottom: none; }
+
+      .note-cell {
+        max-width: 260px;
+        white-space: normal;
+      }
+
+
+      .manual-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        margin-left: 6px;
+        color: var(--primary);
+        font-size: 11px;
+        font-weight: 800;
+      }
+
+      .mini-button {
+        min-height: 30px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        background: #fff;
+        color: var(--text);
+        padding: 0 10px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .mini-button:hover {
+        border-color: var(--primary);
+        color: var(--primary);
+        background: #f8fbff;
+      }
+
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 18px;
+        background: rgba(15, 23, 42, 0.46);
+      }
+
+      .modal-backdrop.open { display: flex; }
+
+      .modal-card {
+        width: min(1120px, 100%);
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        box-shadow: 0 24px 70px rgba(15, 23, 42, 0.25);
+        overflow: hidden;
+      }
+
+      .modal-head,
+      .modal-foot {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .modal-foot {
+        border-top: 1px solid var(--line);
+        border-bottom: none;
+      }
+
+      .modal-title {
+        display: grid;
+        gap: 3px;
+      }
+
+      .modal-title strong { font-size: 17px; }
+      .modal-title span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .modal-body {
+        display: grid;
+        gap: 12px;
+        padding: 16px;
+      }
+
+      .modal-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .edit-hint {
+        padding: 10px 12px;
+        border: 1px solid #bfdbfe;
+        border-radius: 8px;
+        background: #eff6ff;
+        color: #1e40af;
+        font-size: 13px;
+        line-height: 1.45;
+      }
+
+      .employee-edit-wrap {
+        max-height: min(68vh, 680px);
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fff;
+      }
+
+      .employee-edit-table {
+        min-width: 920px;
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      .employee-edit-table th {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #eef4fb;
+      }
+
+      .employee-edit-table th,
+      .employee-edit-table td {
+        padding: 9px 10px;
+        border-bottom: 1px solid var(--line);
+        font-size: 13px;
+        white-space: nowrap;
+      }
+
+      .employee-edit-table input,
+      .employee-edit-table select {
+        min-height: 34px;
+        width: 100%;
+        min-width: 92px;
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        padding: 0 8px;
+        background: #fff;
+      }
+
+      .employee-edit-table .note-cell {
+        min-width: 220px;
+        white-space: normal;
+      }
+
+      .employee-edit-table .readonly-cell {
+        color: var(--muted);
+        font-weight: 650;
+      }
+
+      .icon-button {
+        display: inline-grid;
+        place-items: center;
+        width: 34px;
+        height: 34px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        cursor: pointer;
+        color: var(--muted);
+        font-size: 18px;
+        line-height: 1;
+      }
+
+      .icon-button:hover {
+        color: var(--red);
+        border-color: #fecaca;
+        background: var(--red-bg);
+      }
+
+      @media (max-width: 560px) {
+        .modal-grid { grid-template-columns: 1fr; }
+      }
+
+      @media (max-width: 1020px) {
+        .workspace { grid-template-columns: 1fr; }
+        .controls-panel { position: static; }
+        .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      }
+
+      @media (max-width: 720px) {
+        .app-shell {
+          width: min(100% - 20px, 1480px);
+          padding-top: 14px;
+        }
+        .topbar, .table-toolbar, .toolbar-group {
+          align-items: stretch;
+          flex-direction: column;
+        }
+        .actions { width: 100%; }
+        .button { flex: 1; }
+        .stats-grid { grid-template-columns: 1fr; }
+        .field.compact, .search-field {
+          width: 100%;
+          min-width: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="topbar" aria-label="Thanh công cụ">
+        <div>
+          <p class="eyebrow">Bảng công</p>
+          <h1>Tính công & tăng ca</h1>
+        </div>
+
+        <div class="actions">
+          <button class="button ghost" id="clearBtn" type="button">Xóa</button>
+          <div class="export-wrap" id="exportWrap">
+            <button class="button primary" id="exportBtn" type="button" disabled>
+              Xuất file <span class="caret">▾</span>
+            </button>
+            <div class="export-menu" role="menu">
+              <button type="button" data-export="csv">
+                <span class="ext csv">CSV</span><span>Xuất CSV</span>
+              </button>
+              <button type="button" data-export="xlsx">
+                <span class="ext xlsx">XLSX</span><span>Xuất Excel</span>
+              </button>
+              <button type="button" data-export="pdf">
+                <span class="ext pdf">PDF</span><span>Xuất PDF</span>
+              </button>
+              <button type="button" data-export="zip">
+                <span class="ext xlsx">ZIP</span><span>ZIP tất cả nhân viên</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <aside class="panel controls-panel">
+          <label class="upload-box" id="dropZone">
+            <input id="fileInput" type="file" multiple accept=".xls,.xlsx,.csv" />
+            <span class="upload-icon" aria-hidden="true">+</span>
+            <span class="upload-title">Chọn nhiều file Excel</span>
+            <span class="upload-note">.xls, .xlsx, .csv</span>
+          </label>
+
+          <div class="settings">
+            <div class="settings-title">Thiết lập</div>
+            <label class="field">
+              <span>Giờ vào chuẩn</span>
+              <input id="startTime" type="text" inputmode="numeric" autocomplete="off" placeholder="HH:mm" maxlength="5" value="08:00" />
+            </label>
+            <label class="field">
+              <span>Giờ ra chuẩn</span>
+              <input id="endTime" type="text" inputmode="numeric" autocomplete="off" placeholder="HH:mm" maxlength="5" value="17:30" />
+            </label>
+            <label class="toggle-row">
+              <input id="fullDayMode" type="checkbox" checked />
+              <span>Có đủ giờ vào/ra = 1 công</span>
+            </label>
+
+            <div class="intern-settings" id="earlyEndBox">
+              <div class="intern-settings-head">
+                <div class="intern-settings-title">Nhân viên về 17:00</div>
+                <span class="intern-count" id="earlyEndCount">0 chọn</span>
+              </div>
+              <div class="intern-empty" id="earlyEndEmpty">Tải file Excel lên, danh sách nhân viên sẽ hiện ở đây để chọn người được tính đủ công khi ra từ 17:00.</div>
+              <div class="intern-list" id="earlyEndList"></div>
+            </div>
+          </div>
+
+          <div class="file-stack" id="fileList" aria-live="polite"></div>
+        </aside>
+
+        <section class="content">
+          <section class="stats-grid" aria-label="Tổng quan">
+            <article class="stat-box">
+              <span>Nhân viên</span>
+              <strong id="statEmployees">0</strong>
+            </article>
+            <article class="stat-box">
+              <span>Tổng công</span>
+              <strong id="statWorkdays">0</strong>
+            </article>
+            <article class="stat-box">
+              <span>Tăng ca</span>
+              <strong id="statOvertime">0 giờ</strong>
+            </article>
+            <article class="stat-box">
+              <span>Nghỉ phép</span>
+              <strong id="statLeave">0</strong>
+            </article>
+            <article class="stat-box">
+              <span>Quên chấm công</span>
+              <strong id="statForgot">0</strong>
+            </article>
+          </section>
+
+          <section class="panel table-panel">
+            <div class="table-toolbar">
+              <div class="toolbar-group">
+                <label class="field compact">
+                  <span>Trạng thái</span>
+                  <select id="statusFilter">
+                    <option value="all">Tất cả</option>
+                    <option value="ok">Đủ chuẩn</option>
+                    <option value="short">Có thiếu giờ</option>
+                    <option value="forgot">Có quên chấm công</option>
+                    <option value="leave">Có nghỉ phép</option>
+                    <option value="overtime">Có tăng ca</option>
+                  </select>
+                </label>
+              </div>
+
+              <label class="search-field">
+                <span>Tìm</span>
+                <input id="searchInput" type="search" placeholder="Tên nhân viên" />
+              </label>
+            </div>
+
+            <div class="empty-state" id="emptyState">
+              <strong>Chưa có dữ liệu</strong>
+              <span>Chọn file Excel để bắt đầu.</span>
+            </div>
+
+            <div class="table-wrap" id="tableWrap" hidden>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nhân viên</th>
+                    <th>Tổng công</th>
+                    <th>Số ngày đi muộn</th>
+                    <th>Tổng giờ muộn</th>
+                    <th>Tổng tăng ca</th>
+                    <th>Nghỉ phép</th>
+                    <th>Quên CC</th>
+                    <th>Số ngày</th>
+                    <th>Sửa</th>
+                  </tr>
+                </thead>
+                <tbody id="resultBody"></tbody>
+              </table>
+            </div>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <div class="modal-backdrop" id="editModal" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div class="modal-title">
+            <strong id="editModalTitle">Sửa dữ liệu chấm công</strong>
+            <span id="editModalSub">Chỉnh trên tool, không sửa file Excel gốc.</span>
+          </div>
+          <button class="icon-button" id="editCloseBtn" type="button" aria-label="Đóng">×</button>
+        </div>
+
+        <div class="modal-body">
+          <div class="edit-hint">
+            Sửa trực tiếp giờ vào/giờ ra hoặc đổi trạng thái từng ngày. Ghi chú không nhập tay: tool sẽ tự cập nhật theo giờ vào/ra và trạng thái mới.
+          </div>
+          <div class="employee-edit-wrap">
+            <table class="employee-edit-table">
+              <thead>
+                <tr>
+                  <th>Ngày</th>
+                  <th>Thứ</th>
+                  <th>Trạng thái</th>
+                  <th>Giờ vào</th>
+                  <th>Giờ ra</th>
+                  <th>Công</th>
+                  <th>Kết quả</th>
+                  <th>Tăng ca</th>
+                  <th>Ghi chú tự động</th>
+                </tr>
+              </thead>
+              <tbody id="employeeEditBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="modal-foot">
+          <button class="button ghost" id="editResetBtn" type="button">Bỏ chỉnh sửa nhân viên này</button>
+          <div class="actions">
+            <button class="button ghost" id="editCancelBtn" type="button">Hủy</button>
+            <button class="button primary" id="editSaveBtn" type="button">Lưu chỉnh sửa</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <script>
+      const els = {
+        clearBtn: document.querySelector("#clearBtn"),
+        dropZone: document.querySelector("#dropZone"),
+        editCancelBtn: document.querySelector("#editCancelBtn"),
+        editCloseBtn: document.querySelector("#editCloseBtn"),
+        editModal: document.querySelector("#editModal"),
+        editModalSub: document.querySelector("#editModalSub"),
+        editResetBtn: document.querySelector("#editResetBtn"),
+        editSaveBtn: document.querySelector("#editSaveBtn"),
+        employeeEditBody: document.querySelector("#employeeEditBody"),
+        earlyEndCount: document.querySelector("#earlyEndCount"),
+        earlyEndEmpty: document.querySelector("#earlyEndEmpty"),
+        earlyEndList: document.querySelector("#earlyEndList"),
+        emptyState: document.querySelector("#emptyState"),
+        endTime: document.querySelector("#endTime"),
+        exportBtn: document.querySelector("#exportBtn"),
+        exportWrap: document.querySelector("#exportWrap"),
+        fileInput: document.querySelector("#fileInput"),
+        fileList: document.querySelector("#fileList"),
+        fullDayMode: document.querySelector("#fullDayMode"),
+        resultBody: document.querySelector("#resultBody"),
+        searchInput: document.querySelector("#searchInput"),
+        startTime: document.querySelector("#startTime"),
+        statEmployees: document.querySelector("#statEmployees"),
+        statLeave: document.querySelector("#statLeave"),
+        statForgot: document.querySelector("#statForgot"),
+        statOvertime: document.querySelector("#statOvertime"),
+        statWorkdays: document.querySelector("#statWorkdays"),
+        statusFilter: document.querySelector("#statusFilter"),
+        tableWrap: document.querySelector("#tableWrap"),
+      };
+
+      const state = {
+        files: [],
+        records: [],
+        rows: [],
+        expanded: new Set(),
+        edits: loadManualEdits(),
+        earlyEndEmployees: loadEarlyEndEmployees(),
+        currentEditEmployee: "",
+        employeeDraft: {},
+      };
+
+      const htmlEntityDecoder = document.createElement("textarea");
+
+      const CSV_HEADERS = [
+        "Nhân viên",
+        "Tổng công",
+        "Số ngày đi muộn",
+        "Tổng giờ muộn",
+        "Tổng tăng ca",
+        "Nghỉ phép",
+        "Quên chấm công",
+        "Số ngày",
+      ];
+
+      bindEvents();
+      render();
+
+      function bindEvents() {
+        els.fileInput.addEventListener("change", (event) => {
+          handleFiles(Array.from(event.target.files || []));
+          event.target.value = "";
+        });
+
+        ["dragenter", "dragover"].forEach((name) => {
+          els.dropZone.addEventListener(name, (event) => {
+            event.preventDefault();
+            els.dropZone.classList.add("drag-over");
+          });
+        });
+
+        ["dragleave", "drop"].forEach((name) => {
+          els.dropZone.addEventListener(name, (event) => {
+            event.preventDefault();
+            els.dropZone.classList.remove("drag-over");
+          });
+        });
+
+        els.dropZone.addEventListener("drop", (event) => {
+          handleFiles(Array.from(event.dataTransfer.files || []));
+        });
+
+        [els.startTime, els.endTime].forEach((control) => {
+          bindClockInput(control, render);
+          control.addEventListener("change", () => {
+            normalizeClockInput(control, { fallback: control.defaultValue || "" });
+            render();
+          });
+        });
+
+        els.fullDayMode.addEventListener("change", render);
+
+        els.earlyEndList.addEventListener("change", (event) => {
+          const checkbox = event.target.closest('input[data-early-end-employee]');
+          if (!checkbox) return;
+          const key = checkbox.dataset.earlyEndEmployee;
+          if (checkbox.checked) state.earlyEndEmployees[key] = checkbox.dataset.employeeName || key;
+          else delete state.earlyEndEmployees[key];
+          saveEarlyEndEmployees();
+          render();
+        });
+
+        [els.statusFilter, els.searchInput].forEach((control) => {
+          control.addEventListener("input", renderTable);
+        });
+
+        els.clearBtn.addEventListener("click", () => {
+          state.files = [];
+          state.records = [];
+          state.rows = [];
+          state.expanded.clear();
+          state.edits = {};
+          state.earlyEndEmployees = {};
+          state.currentEditEmployee = "";
+          state.employeeDraft = {};
+          saveManualEdits();
+          saveEarlyEndEmployees();
+          els.statusFilter.value = "all";
+          els.searchInput.value = "";
+          render();
+        });
+
+        els.exportBtn.addEventListener("click", (event) => {
+          if (els.exportBtn.disabled) return;
+          event.stopPropagation();
+          els.exportWrap.classList.toggle("open");
+        });
+
+        els.exportWrap.addEventListener("click", (event) => {
+          const target = event.target.closest("button[data-export]");
+          if (!target) return;
+          event.stopPropagation();
+          const kind = target.dataset.export;
+          els.exportWrap.classList.remove("open");
+          if (kind === "csv") exportCsv();
+          else if (kind === "xlsx") exportXlsx();
+          else if (kind === "pdf") exportPdf();
+          else if (kind === "zip") exportZipAllEmployees();
+        });
+
+        document.addEventListener("click", (event) => {
+          if (!els.exportWrap.contains(event.target)) {
+            els.exportWrap.classList.remove("open");
+          }
+        });
+
+
+        [els.editCancelBtn, els.editCloseBtn].forEach((button) => {
+          button.addEventListener("click", closeEditModal);
+        });
+
+        els.editModal.addEventListener("click", (event) => {
+          if (event.target === els.editModal) closeEditModal();
+        });
+
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape" && els.editModal.classList.contains("open")) {
+            closeEditModal();
+          }
+        });
+
+        els.editSaveBtn.addEventListener("click", saveEmployeeEdits);
+        els.editResetBtn.addEventListener("click", removeEmployeeEdits);
+        els.employeeEditBody.addEventListener("input", handleEmployeeDraftChange);
+        els.employeeEditBody.addEventListener("change", handleEmployeeDraftChange);
+
+        // Click vào dòng tổng để sổ chi tiết hoặc mở popup sửa cả nhân viên
+        els.resultBody.addEventListener("click", (event) => {
+          const employeeButton = event.target.closest("button[data-edit-employee]");
+          if (employeeButton) {
+            event.stopPropagation();
+            openEmployeeEditModal(employeeButton.dataset.editEmployee);
+            return;
+          }
+
+          const row = event.target.closest("tr.summary-row");
+          if (!row) return;
+          const employee = row.dataset.employee;
+          if (!employee) return;
+          if (state.expanded.has(employee)) {
+            state.expanded.delete(employee);
+          } else {
+            state.expanded.add(employee);
+          }
+          renderTable();
+        });
+      }
+
+      async function handleFiles(files) {
+        if (!files.length) return;
+
+        const allowedFiles = files.filter((file) =>
+          /\.(xls|xlsx|csv)$/i.test(file.name),
+        );
+
+        for (const file of allowedFiles) {
+          const fileEntry = {
+            name: file.name,
+            count: 0,
+            status: "reading",
+            message: "Đang đọc",
+          };
+          state.files.push(fileEntry);
+          renderFiles();
+
+          try {
+            const records = await parseFile(file);
+            fileEntry.count = records.length;
+            fileEntry.status = records.length ? "ok" : "error";
+            fileEntry.message = records.length
+              ? `${records.length} dòng`
+              : "Không tìm thấy bảng chấm công";
+            state.records.push(...records);
+          } catch (error) {
+            fileEntry.status = "error";
+            fileEntry.message = error.message || "Không đọc được file";
+          }
+
+          render();
+        }
+      }
+
+      async function parseFile(file) {
+        const buffer = await file.arrayBuffer();
+        const preview = decodeBuffer(buffer.slice(0, 2048)).toLowerCase();
+
+        if (file.name.toLowerCase().endsWith(".csv")) {
+          return rowsToRecords(parseCsv(decodeBuffer(buffer)), file.name);
+        }
+
+        if (preview.includes("<html") || preview.includes("<table")) {
+          const html = decodeBuffer(buffer);
+          return parseHtmlExcel(html, file.name);
+        }
+
+        if (!window.XLSX) {
+          throw new Error("Cần internet để đọc file .xlsx/.xls Excel thật");
+        }
+
+        return parseWorkbook(buffer, file.name);
+      }
+
+      function decodeBuffer(buffer) {
+        return new TextDecoder("utf-8").decode(buffer);
+      }
+
+      function parseHtmlExcel(html, fileName) {
+        const tableHtml = extractPunchReportTable(html);
+        const cells = Array.from(tableHtml.matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi))
+          .map((match) => cleanHtmlValue(match[1]))
+          .filter((value) => value !== "");
+
+        const records = [];
+        for (let index = 0; index + 6 < cells.length; index += 7) {
+          const chunk = cells.slice(index, index + 7);
+          const date = normalizeDate(chunk[2]);
+
+          if (!date) continue;
+
+          records.push({
+            department: chunk[0],
+            employee: chunk[1] || employeeNameFromFile(fileName),
+            date,
+            shift: chunk[3],
+            schedule: chunk[4],
+            rawIn: chunk[5],
+            rawOut: chunk[6],
+            source: fileName,
+          });
+        }
+
+        if (records.length) return records;
+
+        return rowsToRecords(extractRowsWithDom(html), fileName);
+      }
+
+      function extractPunchReportTable(html) {
+        const match = html.match(
+          /<table\b[^>]*class=(?:"[^"]*\bPunch_Report\b[^"]*"|'[^']*\bPunch_Report\b[^']*'|[^\s>]*Punch_Report[^\s>]*)[^>]*>([\s\S]*?)<\/table>/i,
+        );
+        return match ? match[1] : html;
+      }
+
+      function extractRowsWithDom(html) {
+        const doc = new DOMParser().parseFromString(html, "text/html");
+        const rows = [];
+
+        doc.querySelectorAll("tr").forEach((row) => {
+          const cells = Array.from(row.cells).map((cell) => cleanCell(cell.textContent));
+          if (cells.some(Boolean)) rows.push(cells);
+        });
+
+        return rows;
+      }
+
+      function cleanHtmlValue(value) {
+        const withoutTags = value
+          .replace(/<br\s*\/?>/gi, " ")
+          .replace(/<[^>]*>/g, " ");
+        htmlEntityDecoder.innerHTML = withoutTags;
+        return cleanCell(htmlEntityDecoder.value);
+      }
+
+      function parseWorkbook(buffer, fileName) {
+        const workbook = window.XLSX.read(buffer, {
+          type: "array",
+          cellDates: false,
+          raw: false,
+        });
+
+        return workbook.SheetNames.flatMap((sheetName) => {
+          const sheet = workbook.Sheets[sheetName];
+          const rows = window.XLSX.utils.sheet_to_json(sheet, {
+            header: 1,
+            raw: false,
+            defval: "",
+          });
+          return rowsToRecords(rows, fileName, sheetName);
+        });
+      }
+
+      function parseCsv(text) {
+        const rows = [];
+        let row = [];
+        let cell = "";
+        let quoted = false;
+
+        for (let index = 0; index < text.length; index += 1) {
+          const char = text[index];
+          const next = text[index + 1];
+
+          if (char === '"' && quoted && next === '"') {
+            cell += '"';
+            index += 1;
+          } else if (char === '"') {
+            quoted = !quoted;
+          } else if (char === "," && !quoted) {
+            row.push(cell);
+            cell = "";
+          } else if ((char === "\n" || char === "\r") && !quoted) {
+            if (char === "\r" && next === "\n") index += 1;
+            row.push(cell);
+            if (row.some((value) => cleanCell(value))) rows.push(row);
+            row = [];
+            cell = "";
+          } else {
+            cell += char;
+          }
+        }
+
+        row.push(cell);
+        if (row.some((value) => cleanCell(value))) rows.push(row);
+        return rows;
+      }
+
+      function rowsToRecords(rows, fileName) {
+        const cleanRows = rows
+          .map((row) => row.map(cleanCell))
+          .filter((row) => row.some(Boolean));
+
+        const headerIndex = cleanRows.findIndex((row) => {
+          const normalized = row.map(normalizeText);
+          return (
+            normalized.some((cell) => isNameHeader(cell)) &&
+            normalized.some((cell) => cell.includes("ngay")) &&
+            normalized.some((cell) => isInHeader(cell)) &&
+            normalized.some((cell) => isOutHeader(cell))
+          );
+        });
+
+        if (headerIndex >= 0) {
+          const headers = cleanRows[headerIndex].map(normalizeText);
+          const departmentIndex = headers.findIndex((cell) => cell.includes("bo phan"));
+          const employeeIndex = headers.findIndex(isNameHeader);
+          const dateIndex = headers.findIndex((cell) => cell.includes("ngay"));
+          const shiftIndex = headers.findIndex((cell) => cell === "ca" || cell.includes("ca lam"));
+          const scheduleIndex = headers.findIndex((cell) => cell.includes("thoi gian bieu"));
+          const inIndex = headers.findIndex(isInHeader);
+          const outIndex = headers.findIndex(isOutHeader);
+
+          return cleanRows.slice(headerIndex + 1).flatMap((row) => {
+            const date = normalizeDate(row[dateIndex]);
+            if (!date) return [];
+
+            return {
+              department: row[departmentIndex] || "",
+              employee: row[employeeIndex] || employeeNameFromFile(fileName),
+              date,
+              shift: row[shiftIndex] || "",
+              schedule: row[scheduleIndex] || "",
+              rawIn: row[inIndex] || "",
+              rawOut: row[outIndex] || "",
+              source: fileName,
+            };
+          });
+        }
+
+        return cleanRows.flatMap((row) => {
+          if (row.length < 7) return [];
+          const date = normalizeDate(row[2]);
+          if (!date) return [];
+
+          return {
+            department: row[0] || "",
+            employee: row[1] || employeeNameFromFile(fileName),
+            date,
+            shift: row[3] || "",
+            schedule: row[4] || "",
+            rawIn: row[5] || "",
+            rawOut: row[6] || "",
+            source: fileName,
+          };
+        });
+      }
+
+      function isNameHeader(value) {
+        return (
+          value === "ten" ||
+          value.includes("ho va ten") ||
+          value.includes("nhan vien") ||
+          value.includes("employee")
+        );
+      }
+
+      function isInHeader(value) {
+        return (
+          value.includes("thoi gian vao") ||
+          value.includes("gio vao") ||
+          value.includes("check in") ||
+          value === "in"
+        );
+      }
+
+      function isOutHeader(value) {
+        return (
+          value.includes("thoi gian ra") ||
+          value.includes("gio ra") ||
+          value.includes("check out") ||
+          value === "out"
+        );
+      }
+
+      function cleanCell(value) {
+        return String(value ?? "")
+          .replace(/\u00a0/g, " ")
+          .replace(/\s+/g, " ")
+          .trim();
+      }
+
+      function normalizeText(value) {
+        return cleanCell(value)
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/đ/g, "d")
+          .replace(/Đ/g, "d")
+          .toLowerCase();
+      }
+
+      function isSunday(dateStr) {
+        // dateStr dạng "YYYY-MM-DD"
+        const match = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!match) return false;
+        const year = Number(match[1]);
+        const month = Number(match[2]) - 1;
+        const day = Number(match[3]);
+        // dùng UTC để tránh lệch timezone
+        const d = new Date(Date.UTC(year, month, day));
+        return d.getUTCDay() === 0;
+      }
+
+      function normalizeDate(value) {
+        const text = cleanCell(value);
+        if (!text || text === "-") return "";
+
+        const iso = text.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+        if (iso) return `${iso[1]}-${pad2(iso[2])}-${pad2(iso[3])}`;
+
+        const local = text.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+        if (local) return `${local[3]}-${pad2(local[2])}-${pad2(local[1])}`;
+
+        const serial = Number(text);
+        if (Number.isFinite(serial) && serial > 25000 && serial < 80000) {
+          const date = new Date(Date.UTC(1899, 11, 30) + serial * 86400000);
+          return date.toISOString().slice(0, 10);
+        }
+
+        return "";
+      }
+
+      function parseTimeToMinutes(value) {
+        if (typeof value === "number" && Number.isFinite(value)) {
+          if (value >= 0 && value < 1) return Math.floor(value * 1440);
+          if (value >= 1 && value < 24) return Math.floor(value * 60);
+        }
+
+        const text = cleanCell(value);
+        if (!text || text === "-" || text === "—") return null;
+
+        const numeric = Number(text);
+        if (Number.isFinite(numeric) && numeric >= 0 && numeric < 1) {
+          return Math.floor(numeric * 1440);
+        }
+
+        const match = text.match(/(\d{1,2}):(\d{2})(?::\d{2})?/);
+        if (!match) return null;
+
+        const hours = Number(match[1]);
+        const minutes = Number(match[2]);
+
+        if (!Number.isFinite(hours) || !Number.isFinite(minutes) || minutes > 59) {
+          return null;
+        }
+
+        return hours * 60 + minutes;
+      }
+
+
+      function normalizeClockText(value) {
+        const text = cleanCell(value);
+        if (!text || text === "-" || text === "—") return "";
+
+        const direct = text.match(/^(\d{1,2})\s*[:hH.]\s*(\d{1,2})$/);
+        if (direct) {
+          const hours = Number(direct[1]);
+          const minutes = Number(direct[2]);
+          if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+            return `${pad2(hours)}:${pad2(minutes)}`;
+          }
+        }
+
+        const compact = text.replace(/\D/g, "");
+        if (compact.length === 1 || compact.length === 2) {
+          const hours = Number(compact);
+          if (hours >= 0 && hours <= 23) return `${pad2(hours)}:00`;
+        }
+        if (compact.length === 3 || compact.length === 4) {
+          const hours = Number(compact.slice(0, -2));
+          const minutes = Number(compact.slice(-2));
+          if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+            return `${pad2(hours)}:${pad2(minutes)}`;
+          }
+        }
+
+        return "";
+      }
+
+      function filterClockTyping(value) {
+        let text = String(value ?? "").replace(/[^0-9:]/g, "");
+        const parts = text.split(":");
+        if (parts.length > 2) text = `${parts[0]}:${parts.slice(1).join("")}`;
+        if (!text.includes(":")) return text.slice(0, 4);
+        const [hours = "", minutes = ""] = text.split(":");
+        return `${hours.slice(0, 2)}:${minutes.slice(0, 2)}`.slice(0, 5);
+      }
+
+      function normalizeClockInput(control, { fallback = "" } = {}) {
+        const normalized = normalizeClockText(control.value);
+        if (normalized) {
+          control.value = normalized;
+          return normalized;
+        }
+        control.value = fallback;
+        return fallback;
+      }
+
+      function bindClockInput(control, onUpdate) {
+        control.addEventListener("input", () => {
+          const filtered = filterClockTyping(control.value);
+          if (control.value !== filtered) control.value = filtered;
+          if (typeof onUpdate === "function") onUpdate();
+        });
+        control.addEventListener("blur", () => {
+          normalizeClockInput(control, { fallback: control.defaultValue || "" });
+          if (typeof onUpdate === "function") onUpdate();
+        });
+      }
+
+      function render() {
+        const combined = combineRecords(state.records);
+        state.rows = combined
+          .map((record) => evaluateRecord(applyManualEdit(record), getSettings()))
+          .sort((a, b) => a.employee.localeCompare(b.employee, "vi") || a.date.localeCompare(b.date));
+
+        // Dọn các nhân viên đã expanded nhưng giờ không còn data
+        const allEmployees = new Set(state.rows.map((r) => r.employee));
+        for (const emp of Array.from(state.expanded)) {
+          if (!allEmployees.has(emp)) state.expanded.delete(emp);
+        }
+
+        cleanupEarlyEndEmployees();
+        renderEarlyEndEmployees();
+        renderFiles();
+        renderStats();
+        renderTable();
+      }
+
+      function getSettings() {
+        const startValue = normalizeClockText(els.startTime.value) || "08:00";
+        const endValue = normalizeClockText(els.endTime.value) || "17:30";
+        return {
+          startMinutes: parseTimeToMinutes(startValue) ?? 480,
+          endMinutes: parseTimeToMinutes(endValue) ?? 1050,
+          earlyEndMinutes: 17 * 60,
+          earlyEndEmployees: new Set(Object.keys(state.earlyEndEmployees || {})),
+          fullDayMode: els.fullDayMode.checked,
+        };
+      }
+
+      function combineRecords(records) {
+        const groups = new Map();
+
+        for (const record of records) {
+          const employee = cleanCell(record.employee) || employeeNameFromFile(record.source);
+          const date = normalizeDate(record.date);
+          if (!employee || !date) continue;
+
+          const key = `${normalizeText(employee)}|${date}`;
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key).push({ ...record, employee, date });
+        }
+
+        return Array.from(groups.values()).map((items) => {
+          const first = items[0];
+          const inValues = items
+            .map((item) => parseTimeToMinutes(item.rawIn))
+            .filter((value) => value !== null);
+          const outValues = items
+            .map((item) => parseTimeToMinutes(item.rawOut))
+            .filter((value) => value !== null);
+          const inMinutes = inValues.length ? Math.min(...inValues) : null;
+          const adjustedOutValues = outValues.map((value) =>
+            inMinutes !== null && value < inMinutes ? value + 1440 : value,
+          );
+          const outMinutes = adjustedOutValues.length ? Math.max(...adjustedOutValues) : null;
+
+          return {
+            department: first.department,
+            employee: first.employee,
+            date: first.date,
+            shift: first.shift,
+            schedule: first.schedule,
+            inMinutes,
+            outMinutes,
+            source: Array.from(new Set(items.map((item) => item.source))).join(", "),
+            mergedCount: items.length,
+            editKey: makeEditKey(first.employee, first.date),
+          };
+        });
+      }
+
+      function evaluateRecord(record, settings) {
+        const manualMode = record.manualMode || "";
+        const start = settings.startMinutes;
+        const employeeKey = normalizeText(record.employee);
+        const rawEnd = settings.earlyEndEmployees && settings.earlyEndEmployees.has(employeeKey)
+          ? settings.earlyEndMinutes
+          : settings.endMinutes;
+        const end = rawEnd <= start ? rawEnd + 1440 : rawEnd;
+        const hasIn = record.inMinutes !== null;
+        const hasOut = record.outMinutes !== null;
+        let workday = 0;
+        let overtime = 0;
+        let shortage = 0;
+        let lateMinutes = 0;
+        let earlyMinutes = 0;
+        let status = "missing";
+        let statusText = "Thiếu dữ liệu";
+        const notes = [];
+
+        if (manualMode === "leave" || manualMode === "sunday") {
+          status = manualMode;
+          statusText = manualMode === "sunday" ? "Nghỉ Chủ Nhật" : "Nghỉ phép";
+          notes.push(statusText);
+        } else if (hasIn && hasOut) {
+          const out = record.outMinutes < record.inMinutes ? record.outMinutes + 1440 : record.outMinutes;
+          const standardMinutes = Math.max(1, end - start);
+          const workedMinutes = Math.max(0, out - record.inMinutes);
+          const late = Math.max(0, record.inMinutes - start);
+          const early = Math.max(0, end - out);
+
+          lateMinutes = late;
+          earlyMinutes = early;
+
+          workday = settings.fullDayMode
+            ? 1
+            : Math.min(1, workedMinutes / standardMinutes);
+          overtime = Math.max(0, out - end);
+          shortage = late + early;
+
+          if (late > 0) notes.push(`Vào muộn ${formatDuration(late)}`);
+          if (early > 0) notes.push(`Về sớm ${formatDuration(early)}`);
+
+          if (shortage > 0) {
+            status = "short";
+            statusText = "Thiếu giờ";
+          } else if (overtime > 0) {
+            status = "overtime";
+            statusText = "Có tăng ca";
+          } else {
+            status = "ok";
+            statusText = "Đủ chuẩn";
+          }
+        } else if (!hasIn && !hasOut) {
+          // Không có cả vào lẫn ra → Nghỉ. Nếu là CN thì bình thường, không phải CN thì là nghỉ phép.
+          if (isSunday(record.date)) {
+            status = "sunday";
+            statusText = "Nghỉ Chủ Nhật";
+            notes.push("Nghỉ Chủ Nhật");
+          } else {
+            status = "leave";
+            statusText = "Nghỉ phép";
+            notes.push("Nghỉ phép");
+          }
+        } else {
+          // Chỉ có 1 trong 2 → quên chấm công
+          status = "forgot";
+          statusText = "Quên chấm công";
+          if (!hasIn) notes.push("Thiếu giờ vào (quên chấm công)");
+          else notes.push("Thiếu giờ ra (quên chấm công)");
+        }
+
+        if (record.mergedCount > 1) {
+          notes.push(`Gộp ${record.mergedCount} dòng cùng ngày`);
+        }
+
+
+        const noteText = notes.length ? notes.join("; ") : "-";
+
+        return {
+          ...record,
+          inText: hasIn ? formatClock(record.inMinutes) : "-",
+          outText: hasOut ? formatClock(record.outMinutes) : "-",
+          workday,
+          overtime,
+          shortage,
+          lateMinutes,
+          earlyMinutes,
+          overtimeText: overtime > 0 ? formatDuration(overtime) : "-",
+          status,
+          statusText,
+          noteText,
+          manualEdited: Boolean(record.manualEdited),
+          editKey: record.editKey || makeEditKey(record.employee, record.date),
+        };
+      }
+
+      function renderFiles() {
+        if (!state.files.length) {
+          els.fileList.innerHTML = "";
+          return;
+        }
+
+        els.fileList.innerHTML = state.files
+          .map((file) => {
+            const className = file.status === "error" ? "file-pill error" : "file-pill";
+            return `
+              <div class="${className}">
+                <strong>${escapeHtml(file.name)}</strong>
+                <span>${escapeHtml(file.message)}</span>
+              </div>
+            `;
+          })
+          .join("");
+      }
+
+      function renderStats() {
+        const employeeCount = new Set(state.rows.map((row) => row.employee)).size;
+        const totalWorkdays = state.rows.reduce((sum, row) => sum + row.workday, 0);
+        const totalOvertime = state.rows.reduce((sum, row) => sum + row.overtime, 0);
+        const leaveCount = state.rows.filter((row) => row.status === "leave").length;
+        const forgotCount = state.rows.filter((row) => row.status === "forgot").length;
+
+        els.statEmployees.textContent = employeeCount;
+        els.statWorkdays.textContent = formatWorkday(totalWorkdays);
+        els.statOvertime.textContent = formatDuration(totalOvertime);
+        els.statLeave.textContent = leaveCount;
+        els.statForgot.textContent = forgotCount;
+        els.exportBtn.disabled = state.rows.length === 0;
+      }
+
+      function summarizeEmployees(rows) {
+        const map = new Map();
+
+        for (const row of rows) {
+          if (!map.has(row.employee)) {
+            map.set(row.employee, {
+              employee: row.employee,
+              workdays: 0,
+              overtime: 0,
+              lateDays: 0,
+              lateMinutes: 0,
+              leaveDays: 0,
+              forgotDays: 0,
+              sundayDays: 0,
+              totalDays: 0,
+              hasShort: false,
+              hasOvertime: false,
+              hasLeave: false,
+              hasForgot: false,
+              rows: [],
+            });
+          }
+
+          const summary = map.get(row.employee);
+          summary.workdays += row.workday;
+          summary.overtime += row.overtime;
+          summary.totalDays += 1;
+          if (row.lateMinutes > 0) {
+            summary.lateDays += 1;
+            summary.lateMinutes += row.lateMinutes;
+          }
+          if (row.status === "leave") { summary.leaveDays += 1; summary.hasLeave = true; }
+          if (row.status === "forgot") { summary.forgotDays += 1; summary.hasForgot = true; }
+          if (row.status === "sunday") summary.sundayDays += 1;
+          if (row.status === "short") summary.hasShort = true;
+          if (row.overtime > 0) summary.hasOvertime = true;
+          summary.rows.push(row);
+        }
+
+        const result = Array.from(map.values());
+        result.forEach((s) => {
+          s.rows.sort((a, b) => a.date.localeCompare(b.date));
+        });
+        return result.sort((a, b) => a.employee.localeCompare(b.employee, "vi"));
+      }
+
+      function renderTable() {
+        const hasData = state.rows.length > 0;
+
+        if (!hasData) {
+          els.emptyState.style.display = "";
+          els.emptyState.removeAttribute("hidden");
+          els.tableWrap.style.display = "none";
+          els.tableWrap.setAttribute("hidden", "");
+          els.resultBody.innerHTML = "";
+          return;
+        }
+
+        // Có data → ẩn empty state, hiện bảng
+        els.emptyState.style.display = "none";
+        els.emptyState.setAttribute("hidden", "");
+        els.tableWrap.style.display = "";
+        els.tableWrap.removeAttribute("hidden");
+
+        const summaries = getFilteredSummaries();
+
+        if (!summaries.length) {
+          els.resultBody.innerHTML = `
+            <tr>
+              <td colspan="9" class="muted">Không có nhân viên phù hợp.</td>
+            </tr>
+          `;
+          return;
+        }
+
+        els.resultBody.innerHTML = summaries
+          .map((summary) => renderEmployeeRow(summary))
+          .join("");
+      }
+
+      function renderEmployeeRow(summary) {
+        const isExpanded = state.expanded.has(summary.employee);
+        const expandedClass = isExpanded ? "expanded" : "";
+        const arrow = "›";
+
+        const summaryRow = `
+          <tr class="summary-row ${expandedClass}" data-employee="${escapeHtml(summary.employee)}">
+            <td>
+              <span class="employee-name">
+                <span class="toggle-icon">${arrow}</span>
+                ${escapeHtml(summary.employee)}
+              </span>
+            </td>
+            <td>${formatWorkday(summary.workdays)}</td>
+            <td>${summary.lateDays}</td>
+            <td>${summary.lateMinutes > 0 ? formatDuration(summary.lateMinutes) : "-"}</td>
+            <td>${summary.overtime > 0 ? formatDuration(summary.overtime) : "-"}</td>
+            <td>${summary.leaveDays > 0 ? `<span class="badge leave">${summary.leaveDays}</span>` : "-"}</td>
+            <td>${summary.forgotDays > 0 ? `<span class="badge forgot">${summary.forgotDays}</span>` : "-"}</td>
+            <td class="muted">${summary.totalDays}</td>
+            <td><button class="mini-button" type="button" data-edit-employee="${escapeHtml(summary.employee)}">Sửa</button></td>
+          </tr>
+        `;
+
+        if (!isExpanded) return summaryRow;
+
+        const detailRows = summary.rows
+          .map(
+            (row) => `
+              <tr>
+                <td>${escapeHtml(formatDate(row.date))}</td>
+                <td>${escapeHtml(row.inText)}</td>
+                <td>${escapeHtml(row.outText)}</td>
+                <td>${formatWorkday(row.workday)}</td>
+                <td><span class="badge ${row.status}">${escapeHtml(row.statusText)}</span>${row.manualEdited ? `<span class="manual-badge">Đã sửa</span>` : ""}</td>
+                <td>${escapeHtml(row.overtimeText)}</td>
+                <td class="note-cell">${escapeHtml(row.noteText)}</td>
+              </tr>
+            `,
+          )
+          .join("");
+
+        const detailRow = `
+          <tr class="detail-row">
+            <td colspan="9">
+              <div class="detail-wrap">
+                <div class="detail-title">Chi tiết chấm công – ${escapeHtml(summary.employee)}</div>
+                <table class="detail-table">
+                  <thead>
+                    <tr>
+                      <th>Ngày</th>
+                      <th>Giờ vào</th>
+                      <th>Giờ ra</th>
+                      <th>Công</th>
+                      <th>Trạng thái</th>
+                      <th>Tăng ca</th>
+                      <th>Ghi chú</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${detailRows}
+                  </tbody>
+                </table>
+              </div>
+            </td>
+          </tr>
+        `;
+
+        return summaryRow + detailRow;
+      }
+
+      function getFilteredSummaries() {
+        const status = els.statusFilter.value;
+        const query = normalizeText(els.searchInput.value);
+
+        const all = summarizeEmployees(state.rows);
+
+        return all.filter((summary) => {
+          if (status === "ok") {
+            // Đủ chuẩn = không thiếu giờ, không quên CC, không nghỉ phép
+            if (summary.hasShort || summary.hasForgot || summary.hasLeave) return false;
+          } else if (status === "short") {
+            if (!summary.hasShort) return false;
+          } else if (status === "forgot") {
+            if (!summary.hasForgot) return false;
+          } else if (status === "leave") {
+            if (!summary.hasLeave) return false;
+          } else if (status === "overtime") {
+            if (!summary.hasOvertime) return false;
+          }
+
+          if (!query) return true;
+          return normalizeText(summary.employee).includes(query);
+        });
+      }
+
+
+      function makeEditKey(employee, date) {
+        return `${normalizeText(employee)}|${date}`;
+      }
+
+      function loadManualEdits() {
+        try {
+          const raw = localStorage.getItem("attendanceManualEdits");
+          const parsed = raw ? JSON.parse(raw) : {};
+          return parsed && typeof parsed === "object" ? parsed : {};
+        } catch {
+          return {};
+        }
+      }
+
+      function saveManualEdits() {
+        localStorage.setItem("attendanceManualEdits", JSON.stringify(state.edits || {}));
+      }
+
+      function loadEarlyEndEmployees() {
+        try {
+          const raw = localStorage.getItem("attendanceEarlyEndEmployees");
+          const parsed = raw ? JSON.parse(raw) : {};
+          return parsed && typeof parsed === "object" ? parsed : {};
+        } catch {
+          return {};
+        }
+      }
+
+      function saveEarlyEndEmployees() {
+        localStorage.setItem("attendanceEarlyEndEmployees", JSON.stringify(state.earlyEndEmployees || {}));
+      }
+
+      function getUniqueEmployees() {
+        return Array.from(new Set(state.rows.map((row) => row.employee)))
+          .sort((a, b) => a.localeCompare(b, "vi"));
+      }
+
+      function cleanupEarlyEndEmployees() {
+        const validKeys = new Set(getUniqueEmployees().map((employee) => normalizeText(employee)));
+        let changed = false;
+        Object.keys(state.earlyEndEmployees || {}).forEach((key) => {
+          if (!validKeys.has(key)) {
+            delete state.earlyEndEmployees[key];
+            changed = true;
+          }
+        });
+        if (changed) saveEarlyEndEmployees();
+      }
+
+      function renderEarlyEndEmployees() {
+        const employees = getUniqueEmployees();
+        const selectedCount = Object.keys(state.earlyEndEmployees || {}).length;
+        els.earlyEndCount.textContent = selectedCount + " chọn";
+
+        if (!employees.length) {
+          els.earlyEndEmpty.style.display = "";
+          els.earlyEndList.innerHTML = "";
+          return;
+        }
+
+        els.earlyEndEmpty.style.display = "none";
+        els.earlyEndList.innerHTML = employees.map((employee) => {
+          const key = normalizeText(employee);
+          const checked = state.earlyEndEmployees[key] ? "checked" : "";
+          return `
+            <label class="intern-option">
+              <input type="checkbox" data-early-end-employee="${escapeHtml(key)}" data-employee-name="${escapeHtml(employee)}" ${checked} />
+              <span>${escapeHtml(employee)}</span>
+            </label>
+          `;
+        }).join("");
+      }
+
+      function findRowByEditKey(editKey) {
+        return state.rows.find((row) => row.editKey === editKey) || null;
+      }
+
+      function applyManualEdit(record) {
+        const editKey = record.editKey || makeEditKey(record.employee, record.date);
+        const edit = state.edits[editKey];
+        if (!edit) return { ...record, editKey };
+
+        const next = {
+          ...record,
+          editKey,
+          manualEdited: true,
+          manualMode: edit.mode,
+        };
+
+        if (edit.mode === "auto") return { ...record, editKey };
+
+        if (edit.mode === "leave" || edit.mode === "sunday") {
+          next.inMinutes = null;
+          next.outMinutes = null;
+          return next;
+        }
+
+        if (edit.mode === "work") {
+          next.inMinutes = parseTimeToMinutes(edit.inTime);
+          next.outMinutes = parseTimeToMinutes(edit.outTime);
+          return next;
+        }
+
+        return next;
+      }
+      function getRowsForEmployee(employee) {
+        return state.rows
+          .filter((row) => normalizeText(row.employee) === normalizeText(employee))
+          .sort((a, b) => a.date.localeCompare(b.date));
+      }
+
+      function defaultOutTimeForEmployee(employee) {
+        return state.earlyEndEmployees[normalizeText(employee)] ? "17:00" : (normalizeClockText(els.endTime.value) || "17:30");
+      }
+
+      function buildDraftFromRow(row) {
+        const edit = state.edits[row.editKey] || {};
+        return {
+          mode: edit.mode || (row.status === "leave" || row.status === "sunday" ? row.status : "work"),
+          inTime: edit.inTime || (row.inText !== "-" ? row.inText : els.startTime.value),
+          outTime: edit.outTime || (row.outText !== "-" ? row.outText : defaultOutTimeForEmployee(row.employee)),
+        };
+      }
+
+      function buildBaseDraftForKey(editKey) {
+        const base = combineRecords(state.records).find((record) => record.editKey === editKey);
+        if (!base) return null;
+        const evaluated = evaluateRecord(base, getSettings());
+        return {
+          mode: evaluated.status === "leave" || evaluated.status === "sunday" ? evaluated.status : "work",
+          inTime: evaluated.inText !== "-" ? evaluated.inText : els.startTime.value,
+          outTime: evaluated.outText !== "-" ? evaluated.outText : defaultOutTimeForEmployee(evaluated.employee),
+        };
+      }
+
+      function draftsAreEqual(a, b) {
+        if (!a || !b) return false;
+        const modeA = a.mode || "work";
+        const modeB = b.mode || "work";
+        if (modeA !== modeB) return false;
+        if (modeA === "leave" || modeA === "sunday") return true;
+        return (a.inTime || "") === (b.inTime || "") && (a.outTime || "") === (b.outTime || "");
+      }
+
+      function openEmployeeEditModal(employee) {
+        const rows = getRowsForEmployee(employee);
+        if (!rows.length) return;
+        state.currentEditEmployee = employee;
+        state.employeeDraft = {};
+
+        rows.forEach((row) => {
+          state.employeeDraft[row.editKey] = buildDraftFromRow(row);
+        });
+
+        els.editModalSub.textContent = `${employee} • ${rows.length} ngày`;
+        renderEmployeeEditRows();
+        els.editModal.classList.add("open");
+      }
+
+      function closeEditModal() {
+        els.editModal.classList.remove("open");
+        state.currentEditEmployee = "";
+        state.employeeDraft = {};
+        els.employeeEditBody.innerHTML = "";
+      }
+
+      function handleEmployeeDraftChange(event) {
+        const control = event.target.closest("[data-edit-field]");
+        if (!control) return;
+        const rowEl = control.closest("tr[data-edit-key]");
+        if (!rowEl) return;
+        const key = rowEl.dataset.editKey;
+        const field = control.dataset.editField;
+        if (!state.employeeDraft[key]) state.employeeDraft[key] = { mode: "work", inTime: "", outTime: "" };
+
+        if (field === "inTime" || field === "outTime") {
+          if (event.type === "input") {
+            const filtered = filterClockTyping(control.value);
+            if (control.value !== filtered) control.value = filtered;
+            state.employeeDraft[key][field] = filtered;
+          } else {
+            const normalized = normalizeClockText(control.value);
+            control.value = normalized;
+            state.employeeDraft[key][field] = normalized;
+          }
+        } else {
+          state.employeeDraft[key][field] = control.value;
+        }
+
+        renderEmployeeEditPreview(rowEl, key);
+      }
+
+      function draftToRecord(row, draft) {
+        const next = { ...row };
+        const mode = draft.mode;
+        next.manualEdited = state.edits[row.editKey] ? row.manualEdited : false;
+        next.manualMode = mode;
+        if (mode === "leave" || mode === "sunday") {
+          next.inMinutes = null;
+          next.outMinutes = null;
+        } else {
+          next.inMinutes = parseTimeToMinutes(draft.inTime);
+          next.outMinutes = parseTimeToMinutes(draft.outTime);
+        }
+        return evaluateRecord(next, getSettings());
+      }
+
+      function renderEmployeeEditRows() {
+        const rows = getRowsForEmployee(state.currentEditEmployee);
+        els.employeeEditBody.innerHTML = rows.map((row) => {
+          const draft = state.employeeDraft[row.editKey] || buildDraftFromRow(row);
+          const preview = draftToRecord(row, draft);
+          const disabled = draft.mode === "leave" || draft.mode === "sunday" ? "disabled" : "";
+          return `
+            <tr data-edit-key="${escapeHtml(row.editKey)}">
+              <td>${escapeHtml(formatDate(row.date))}${row.manualEdited ? `<span class="manual-badge">Đã sửa</span>` : ""}</td>
+              <td>${escapeHtml(dayOfWeekVi(row.date))}</td>
+              <td>
+                <select data-edit-field="mode">
+                  <option value="work" ${draft.mode === "work" ? "selected" : ""}>Đi làm</option>
+                  <option value="leave" ${draft.mode === "leave" ? "selected" : ""}>Nghỉ phép</option>
+                  <option value="sunday" ${draft.mode === "sunday" ? "selected" : ""}>Nghỉ Chủ Nhật</option>
+                </select>
+              </td>
+              <td><input type="text" inputmode="numeric" autocomplete="off" placeholder="HH:mm" maxlength="5" data-edit-field="inTime" value="${escapeHtml(draft.inTime || "")}" ${disabled} /></td>
+              <td><input type="text" inputmode="numeric" autocomplete="off" placeholder="HH:mm" maxlength="5" data-edit-field="outTime" value="${escapeHtml(draft.outTime || "")}" ${disabled} /></td>
+              <td class="readonly-cell" data-preview="workday">${formatWorkday(preview.workday)}</td>
+              <td class="readonly-cell" data-preview="status">${escapeHtml(preview.statusText)}</td>
+              <td class="readonly-cell" data-preview="overtime">${escapeHtml(preview.overtimeText)}</td>
+              <td class="note-cell" data-preview="note">${escapeHtml(preview.noteText)}</td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      function renderEmployeeEditPreview(rowEl, key) {
+        const row = findRowByEditKey(key);
+        const draft = state.employeeDraft[key];
+        if (!row || !draft) return;
+        const isLeave = draft.mode === "leave" || draft.mode === "sunday";
+        rowEl.querySelectorAll('input[data-edit-field="inTime"], input[data-edit-field="outTime"]').forEach((input) => {
+          input.disabled = isLeave;
+        });
+        const preview = draftToRecord(row, draft);
+        const workdayEl = rowEl.querySelector('[data-preview="workday"]');
+        const statusEl = rowEl.querySelector('[data-preview="status"]');
+        const overtimeEl = rowEl.querySelector('[data-preview="overtime"]');
+        const noteEl = rowEl.querySelector('[data-preview="note"]');
+        if (workdayEl) workdayEl.textContent = formatWorkday(preview.workday);
+        if (statusEl) statusEl.textContent = preview.statusText;
+        if (overtimeEl) overtimeEl.textContent = preview.overtimeText;
+        if (noteEl) noteEl.textContent = preview.noteText;
+      }
+
+      function saveEmployeeEdits() {
+        const employee = state.currentEditEmployee;
+        if (!employee) return;
+        const rows = getRowsForEmployee(employee);
+
+        for (const row of rows) {
+          const draft = state.employeeDraft[row.editKey] || buildDraftFromRow(row);
+          if (draft.mode === "work") {
+            draft.inTime = normalizeClockText(draft.inTime);
+            draft.outTime = normalizeClockText(draft.outTime);
+            if (!draft.inTime || !draft.outTime) {
+              alert(`Vui lòng nhập giờ dạng 24h HH:mm cho ngày ${formatDate(row.date)}.`);
+              return;
+            }
+          }
+        }
+
+        rows.forEach((row) => {
+          const draft = state.employeeDraft[row.editKey] || buildDraftFromRow(row);
+          const baseDraft = buildBaseDraftForKey(row.editKey);
+
+          if (baseDraft && draftsAreEqual(draft, baseDraft)) {
+            delete state.edits[row.editKey];
+            return;
+          }
+
+          state.edits[row.editKey] = {
+            mode: draft.mode,
+            inTime: draft.mode === "work" ? draft.inTime : "",
+            outTime: draft.mode === "work" ? draft.outTime : "",
+            updatedAt: new Date().toISOString(),
+          };
+        });
+
+        saveManualEdits();
+        closeEditModal();
+        render();
+      }
+
+      function removeEmployeeEdits() {
+        const employee = state.currentEditEmployee;
+        if (!employee) return;
+        getRowsForEmployee(employee).forEach((row) => {
+          delete state.edits[row.editKey];
+        });
+        saveManualEdits();
+        closeEditModal();
+        render();
+      }
+
+      function exportCsv() {
+        const summaries = getFilteredSummaries();
+        if (!summaries.length) return;
+
+        const csv = [
+          CSV_HEADERS,
+          ...summaries.map((s) => [
+            s.employee,
+            formatWorkday(s.workdays),
+            s.lateDays,
+            s.lateMinutes > 0 ? formatDuration(s.lateMinutes) : "-",
+            s.overtime > 0 ? formatDuration(s.overtime) : "-",
+            s.leaveDays,
+            s.forgotDays,
+            s.totalDays,
+          ]),
+        ]
+          .map((row) => row.map(csvCell).join(","))
+          .join("\n");
+
+        const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `bang-cong-${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function exportXlsx() {
+        if (!window.XLSX) {
+          alert("Không tải được thư viện XLSX. Kiểm tra kết nối internet.");
+          return;
+        }
+        const summaries = getFilteredSummaries();
+        if (!summaries.length) return;
+
+        // Sheet 1: Tổng kết
+        const summaryData = [
+          CSV_HEADERS,
+          ...summaries.map((s) => [
+            s.employee,
+            Number(formatWorkday(s.workdays)) || 0,
+            s.lateDays,
+            s.lateMinutes > 0 ? formatDuration(s.lateMinutes) : "-",
+            s.overtime > 0 ? formatDuration(s.overtime) : "-",
+            s.leaveDays,
+            s.forgotDays,
+            s.totalDays,
+          ]),
+        ];
+
+        // Sheet 2: Chi tiết theo từng dòng chấm công
+        const detailData = [
+          [
+            "Nhân viên",
+            "Ngày",
+            "Thứ",
+            "Giờ vào",
+            "Giờ ra",
+            "Công",
+            "Trạng thái",
+            "Tăng ca",
+            "Ghi chú",
+          ],
+        ];
+        summaries.forEach((s) => {
+          s.rows.forEach((row) => {
+            detailData.push([
+              s.employee,
+              formatDate(row.date),
+              dayOfWeekVi(row.date),
+              row.inText,
+              row.outText,
+              Number(formatWorkday(row.workday)) || 0,
+              row.statusText,
+              row.overtimeText,
+              row.noteText,
+            ]);
+          });
+        });
+
+        const wb = window.XLSX.utils.book_new();
+        const wsSummary = window.XLSX.utils.aoa_to_sheet(summaryData);
+        wsSummary["!cols"] = [
+          { wch: 26 }, { wch: 12 }, { wch: 16 }, { wch: 16 },
+          { wch: 16 }, { wch: 12 }, { wch: 14 }, { wch: 10 },
+        ];
+        const wsDetail = window.XLSX.utils.aoa_to_sheet(detailData);
+        wsDetail["!cols"] = [
+          { wch: 26 }, { wch: 12 }, { wch: 8 }, { wch: 10 },
+          { wch: 10 }, { wch: 8 }, { wch: 18 }, { wch: 14 }, { wch: 36 },
+        ];
+
+        window.XLSX.utils.book_append_sheet(wb, wsSummary, "Tổng kết");
+        window.XLSX.utils.book_append_sheet(wb, wsDetail, "Chi tiết");
+
+        const fileName = `bang-cong-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        window.XLSX.writeFile(wb, fileName);
+      }
+
+      function exportPdf() {
+        const jspdfNs = window.jspdf || window.jsPDF;
+        const JsPDF = jspdfNs && (jspdfNs.jsPDF || jspdfNs);
+        if (!JsPDF) {
+          alert("Không tải được thư viện jsPDF. Kiểm tra kết nối internet.");
+          return;
+        }
+        const summaries = getFilteredSummaries();
+        if (!summaries.length) return;
+
+        const doc = new JsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+
+        if (typeof doc.autoTable !== "function") {
+          alert("Không tải được plugin autoTable. Kiểm tra kết nối internet.");
+          return;
+        }
+
+        const today = new Date().toLocaleDateString("vi-VN");
+
+        // Tiêu đề
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(16);
+        doc.text("BANG CONG & TANG CA", 40, 40);
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.text(`Ngay xuat: ${today}  |  So nhan vien: ${summaries.length}`, 40, 58);
+
+        // Bảng tổng kết
+        // Lưu ý: dùng helvetica nên các ký tự tiếng Việt có dấu sẽ được strip bớt.
+        // Dùng strip để PDF không hiện ô vuông lạ.
+        const stripVi = (s) => stripDiacritics(String(s ?? ""));
+
+        doc.autoTable({
+          startY: 78,
+          head: [[
+            "Nhan vien", "Tong cong", "Ngay di muon", "Tong gio muon",
+            "Tong tang ca", "Nghi phep", "Quen CC", "So ngay",
+          ]],
+          body: summaries.map((s) => [
+            stripVi(s.employee),
+            formatWorkday(s.workdays),
+            s.lateDays,
+            s.lateMinutes > 0 ? stripVi(formatDuration(s.lateMinutes)) : "-",
+            s.overtime > 0 ? stripVi(formatDuration(s.overtime)) : "-",
+            s.leaveDays,
+            s.forgotDays,
+            s.totalDays,
+          ]),
+          styles: { font: "helvetica", fontSize: 9, cellPadding: 5 },
+          headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: "bold" },
+          alternateRowStyles: { fillColor: [248, 251, 255] },
+          margin: { left: 40, right: 40 },
+        });
+
+        // Mỗi nhân viên một bảng chi tiết
+        summaries.forEach((s) => {
+          const pageHeight = doc.internal.pageSize.getHeight();
+          let headerY = doc.lastAutoTable.finalY + 24;
+
+          // Nếu không đủ chỗ cho cả tiêu đề + vài dòng đầu thì sang trang
+          if (headerY > pageHeight - 120) {
+            doc.addPage();
+            headerY = 40;
+          }
+
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(12);
+          doc.text(`Chi tiet: ${stripVi(s.employee)}`, 40, headerY);
+
+          doc.autoTable({
+            startY: headerY + 8,
+            head: [["Ngay", "Thu", "Vao", "Ra", "Cong", "Trang thai", "Tang ca", "Ghi chu"]],
+            body: s.rows.map((row) => [
+              formatDate(row.date),
+              stripVi(dayOfWeekVi(row.date)),
+              row.inText,
+              row.outText,
+              formatWorkday(row.workday),
+              stripVi(row.statusText),
+              stripVi(row.overtimeText),
+              stripVi(row.noteText),
+            ]),
+            styles: { font: "helvetica", fontSize: 8.5, cellPadding: 4 },
+            headStyles: { fillColor: [110, 130, 170], textColor: 255 },
+            alternateRowStyles: { fillColor: [248, 251, 255] },
+            margin: { left: 40, right: 40 },
+          });
+        });
+
+        doc.save(`bang-cong-${new Date().toISOString().slice(0, 10)}.pdf`);
+      }
+
+
+      async function exportZipAllEmployees() {
+        if (!window.XLSX) {
+          alert("Không tải được thư viện XLSX. Kiểm tra kết nối internet.");
+          return;
+        }
+        if (!window.JSZip) {
+          alert("Không tải được thư viện ZIP. Kiểm tra kết nối internet.");
+          return;
+        }
+        const summaries = getFilteredSummaries();
+        if (!summaries.length) return;
+
+        const zip = new JSZip();
+        summaries.forEach((summary) => {
+          const wb = window.XLSX.utils.book_new();
+          const data = [
+            ["Nhân viên", "Ngày", "Thứ", "Giờ vào", "Giờ ra", "Công", "Trạng thái", "Tăng ca", "Ghi chú"],
+            ...summary.rows.map((row) => [
+              summary.employee,
+              formatDate(row.date),
+              dayOfWeekVi(row.date),
+              row.inText,
+              row.outText,
+              Number(formatWorkday(row.workday)) || 0,
+              row.statusText,
+              row.overtimeText,
+              row.noteText,
+            ]),
+          ];
+          const ws = window.XLSX.utils.aoa_to_sheet(data);
+          ws["!cols"] = [
+            { wch: 28 }, { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 10 },
+            { wch: 8 }, { wch: 18 }, { wch: 14 }, { wch: 42 },
+          ];
+          ws["!autofilter"] = { ref: `A1:I${data.length}` };
+          ws["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft", state: "frozen" };
+          for (let col = 0; col < 9; col += 1) {
+            const address = window.XLSX.utils.encode_cell({ r: 0, c: col });
+            if (ws[address]) {
+              ws[address].s = {
+                font: { bold: true, color: { rgb: "FFFFFF" } },
+                fill: { fgColor: { rgb: "2563EB" } },
+                alignment: { horizontal: "center", vertical: "center" },
+              };
+            }
+          }
+          window.XLSX.utils.book_append_sheet(wb, ws, "Chi tiết");
+          const buffer = window.XLSX.write(wb, { bookType: "xlsx", type: "array", cellStyles: true });
+          zip.file(`${safeFileName(summary.employee)}.xlsx`, buffer);
+        });
+
+        const blob = await zip.generateAsync({ type: "blob" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `bang-cong-tung-nhan-vien-${new Date().toISOString().slice(0, 10)}.zip`;
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function safeFileName(value) {
+        return cleanCell(value)
+          .replace(/[\\/:*?"<>|]+/g, "-")
+          .replace(/\s+/g, " ")
+          .slice(0, 80) || "nhan-vien";
+      }
+
+      function dayOfWeekVi(dateStr) {
+        const match = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!match) return "";
+        const d = new Date(Date.UTC(+match[1], +match[2] - 1, +match[3]));
+        const names = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+        return names[d.getUTCDay()];
+      }
+
+      function stripDiacritics(text) {
+        return String(text ?? "")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/đ/g, "d")
+          .replace(/Đ/g, "D");
+      }
+
+      function csvCell(value) {
+        const text = String(value ?? "");
+        return `"${text.replace(/"/g, '""')}"`;
+      }
+
+      function employeeNameFromFile(fileName) {
+        return cleanCell(fileName)
+          .replace(/\.[^.]+$/, "")
+          .replace(/[_-]+/g, " ");
+      }
+
+      function formatClock(minutes) {
+        const normalized = ((minutes % 1440) + 1440) % 1440;
+        const hours = Math.floor(normalized / 60);
+        const minute = normalized % 60;
+        return `${pad2(hours)}:${pad2(minute)}`;
+      }
+
+      function formatDuration(minutes) {
+        const rounded = Math.max(0, Math.round(minutes));
+        const hours = Math.floor(rounded / 60);
+        const minute = rounded % 60;
+
+        if (hours && minute) return `${hours} giờ ${minute} phút`;
+        if (hours) return `${hours} giờ`;
+        if (minute) return `${minute} phút`;
+        return "0 giờ";
+      }
+
+      function formatWorkday(value) {
+        return Number.isInteger(value) ? String(value) : value.toFixed(2);
+      }
+
+      function formatDate(value) {
+        const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!match) return value;
+        return `${match[3]}/${match[2]}/${match[1]}`;
+      }
+
+      function pad2(value) {
+        return String(value).padStart(2, "0");
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+    </script>
+  </body>
+</html>
